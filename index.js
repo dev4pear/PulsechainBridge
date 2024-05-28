@@ -14,7 +14,7 @@ const omnibridgeAbi = require("./ABI/Omnibridge.json");
 const swapRouterAbi = require("./ABI/SwapRouter.json");
 const erc20Abi = require("./ABI/ERC20.json");
 
-const SWAP_LIMIT = ethers.parseEther("0.1");
+const SWAP_LIMIT = ethers.parseEther("0.000001");
 const isProd = process.env.NODE_ENV == "production" ? true : false;
 const privateKey = process.env.PRIVATE_KEY;
 const ethRpcUrl = isProd ? ETH_RPC_URL : SEPOLIA_RPC_URL;
@@ -25,7 +25,7 @@ const wethAddress = isProd
   ? "0x02DcdD04e3F455D838cd1249292C58f3B79e3C3C"
   : "0x3677bd78CCf4d299328ECFBa61790cf8dBfcF686";
 const wplsAddress = isProd
-  ? "0x70499adEBB11Efd915E3b69E700c331778628707"
+  ? "0xA1077a294dDE1B09bB078844df40758a5D0f9a27"
   : "0x70499adEBB11Efd915E3b69E700c331778628707";
 
 const ethProvider = new ethers.JsonRpcProvider(ethRpcUrl);
@@ -52,19 +52,24 @@ const main = async () => {
   await myWrap();
   plsProvider.on("block", async (blockNumber) => {
     const balance = await weth.balanceOf(signer.address);
+    console.log("balance: ", balance);
     if (balance > SWAP_LIMIT) {
       const allowance = await weth.allowance(signer.address, routerAddress);
+      console.log("allowance: ", allowance);
       if (allowance < balance) {
-        const tx = await weth.approve(routerAddress, ethers.MaxUint256);
+        const tx = await weth.approve(routerAddress, allowance);
         await tx.wait();
+        console.log("wait", tx);
       }
       const args = [balance, 0, [wethAddress, wplsAddress], signer.address];
       const estimatedAmount =
         await swapRouter.swapExactTokensForTokensV1.staticCall(...args);
+      console.log("estimatedAmount: ", estimatedAmount);
       args[1] = (estimatedAmount * 995n) / 1000n;
       const tx = await swapRouter.swapExactTokensForTokensV1(...args);
       await tx.wait();
       console.log(tx);
+      return;
     }
   });
 };
